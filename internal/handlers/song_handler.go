@@ -3,80 +3,104 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"song-library/internal/models"
-	"song-library/internal/repository"
+	"song-library/internal/service"
+	"song-library/pkg/logger"
 	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
 type SongHandler struct {
-	repo *repository.SongRepository
+	SongService *service.SongService
 }
 
-func NewSongHandler(repo *repository.SongRepository) *SongHandler {
-	return &SongHandler{repo: repo}
+func NewSongHandler(songService *service.SongService) *SongHandler {
+	return &SongHandler{
+		SongService: songService,
+	}
 }
 
-func (h *SongHandler) CreateSong(w http.ResponseWriter, r *http.Request) {
-	var song models.Song
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+func (h *SongHandler) GetSongs(w http.ResponseWriter, r *http.Request) {
+	group := r.URL.Query().Get("group")
+	song := r.URL.Query().Get("song")
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page := 1
+	limit := 10
+
+	if pageStr != "" {
+		var err error
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page <= 0 {
+			http.Error(w, "Invalid page parameter", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if limitStr != "" {
+		var err error
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 {
+			http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
+			return
+		}
+	}
+
+	songs, err := h.SongService.GetSongs(group, song, page, limit)
+	if err != nil {
+		logger.Error("Error fetching songs: " + err.Error())
+		http.Error(w, "Error fetching songs", http.StatusInternalServerError)
 		return
 	}
 
-	id, err := h.repo.Create(r.Context(), song)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(songs); err != nil {
+		logger.Error("Error encoding response: " + err.Error())
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+	}
+}
+
+func (h *SongHandler) AddSong(w http.ResponseWriter, r *http.Request) {
+	var song service.SongRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
+		logger.Error("Error decoding request body: " + err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.SongService.AddSong(song); err != nil {
+		logger.Error("Error adding song: " + err.Error())
+		http.Error(w, "Error adding song", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"id": id})
-}
-
-func (h *SongHandler) GetSong(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	song, err := h.repo.GetByID(r.Context(), id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if song == nil {
-		http.Error(w, "Song not found", http.StatusNotFound)
-		return
-	}
-
-	json.NewEncoder(w).Encode(song)
-}
-
-func (h *SongHandler) GetAllSongs(w http.ResponseWriter, r *http.Request) {
-	filter := r.URL.Query().Get("filter")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-
-	songs, err := h.repo.GetAll(r.Context(), filter, limit, offset)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	json.NewEncoder(w).Encode(songs)
 }
 
 func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
-	var song models.Song
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	vars := mux.Vars(r)
+	songIDStr := vars["id"]
+
+	songID, err := strconv.Atoi(songIDStr)
+	if err != nil {
+		http.Error(w, "Invalid song ID", http.StatusBadRequest)
 		return
 	}
 
-	song.ID = mux.Vars(r)["id"]
+	var song service.SongRequest
 
-	if err := h.repo.Update(r.Context(), song); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
+		logger.Error("Error decoding request body: " + err.Error())
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.SongService.UpdateSong(songID, song); err != nil {
+		logger.Error("Error updating song: " + err.Error())
+		http.Error(w, "Error updating song", http.StatusInternalServerError)
 		return
 	}
 
@@ -84,12 +108,33 @@ func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SongHandler) DeleteSong(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	vars := mux.Vars(r)
+	songIDStr := vars["id"]
 
-	if err := h.repo.Delete(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	songID, err := strconv.Atoi(songIDStr)
+	if err != nil {
+		http.Error(w, "Invalid song ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.SongService.DeleteSong(songID); err != nil {
+		logger.Error("Error deleting song: " + err.Error())
+		http.Error(w, "Error deleting song", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func InitRoutes() *mux.Router {
+	router := mux.NewRouter()
+
+	songHandler := NewSongHandler(service.NewSongService())
+
+	router.HandleFunc("/songs", songHandler.GetSongs).Methods(http.MethodGet)
+	router.HandleFunc("/songs", songHandler.AddSong).Methods(http.MethodPost)
+	router.HandleFunc("/songs/:id", songHandler.UpdateSong).Methods(http.MethodPut)
+	router.HandleFunc("/songs/:id", songHandler.DeleteSong).Methods(http.MethodDelete)
+
+	return router
 }
