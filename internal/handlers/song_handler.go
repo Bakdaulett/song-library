@@ -1,140 +1,110 @@
 package handlers
 
 import (
-	"encoding/json"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"song-library/internal/service"
-	"song-library/pkg/logger"
 	"strconv"
-
-	"github.com/gorilla/mux"
 )
 
-type SongHandler struct {
-	SongService *service.SongService
-}
-
-func NewSongHandler(songService *service.SongService) *SongHandler {
-	return &SongHandler{
-		SongService: songService,
-	}
-}
-
-func (h *SongHandler) GetSongs(w http.ResponseWriter, r *http.Request) {
-	group := r.URL.Query().Get("group")
-	song := r.URL.Query().Get("song")
-	pageStr := r.URL.Query().Get("page")
-	limitStr := r.URL.Query().Get("limit")
-
-	page := 1
-	limit := 10
-
-	if pageStr != "" {
-		var err error
-		page, err = strconv.Atoi(pageStr)
-		if err != nil || page <= 0 {
-			http.Error(w, "Invalid page parameter", http.StatusBadRequest)
-			return
-		}
-	}
-
-	if limitStr != "" {
-		var err error
-		limit, err = strconv.Atoi(limitStr)
-		if err != nil || limit <= 0 {
-			http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
-			return
-		}
-	}
+// GetSongs handles the GET request to fetch all songs
+func (h *Handler) GetSongs(c *gin.Context) {
+	group := c.DefaultQuery("group", "")
+	song := c.DefaultQuery("song", "")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
 	songs, err := h.SongService.GetSongs(group, song, page, limit)
 	if err != nil {
-		logger.Error("Error fetching songs: " + err.Error())
-		http.Error(w, "Error fetching songs", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch songs"})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(songs); err != nil {
-		logger.Error("Error encoding response: " + err.Error())
-		http.Error(w, "Error encoding response", http.StatusInternalServerError)
-	}
+	c.JSON(http.StatusOK, songs)
 }
 
-func (h *SongHandler) AddSong(w http.ResponseWriter, r *http.Request) {
-	var song service.SongRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
-		logger.Error("Error decoding request body: " + err.Error())
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.SongService.AddSong(song); err != nil {
-		logger.Error("Error adding song: " + err.Error())
-		http.Error(w, "Error adding song", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-}
-
-func (h *SongHandler) UpdateSong(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	songIDStr := vars["id"]
-
-	songID, err := strconv.Atoi(songIDStr)
+// GetSongByID handles the GET request to fetch a song by its ID
+func (h *Handler) GetSongByID(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		http.Error(w, "Invalid song ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
 		return
 	}
 
-	var song service.SongRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&song); err != nil {
-		logger.Error("Error decoding request body: " + err.Error())
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.SongService.UpdateSong(songID, song); err != nil {
-		logger.Error("Error updating song: " + err.Error())
-		http.Error(w, "Error updating song", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-func (h *SongHandler) DeleteSong(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	songIDStr := vars["id"]
-
-	songID, err := strconv.Atoi(songIDStr)
+	song, err := h.SongService.GetSongByID(id)
 	if err != nil {
-		http.Error(w, "Invalid song ID", http.StatusBadRequest)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
 		return
 	}
 
-	if err := h.SongService.DeleteSong(songID); err != nil {
-		logger.Error("Error deleting song: " + err.Error())
-		http.Error(w, "Error deleting song", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	c.JSON(http.StatusOK, song)
 }
 
-func InitRoutes() *mux.Router {
-	router := mux.NewRouter()
+// AddSong handles the POST request to add a new song
+func (h *Handler) AddSong(c *gin.Context) {
+	var songRequest service.SongRequest
+	if err := c.ShouldBindJSON(&songRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
-	songHandler := NewSongHandler(service.NewSongService())
+	// Validate the release date
+	if songRequest.ReleaseDate.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid release date"})
+		return
+	}
 
-	router.HandleFunc("/songs", songHandler.GetSongs).Methods(http.MethodGet)
-	router.HandleFunc("/songs", songHandler.AddSong).Methods(http.MethodPost)
-	router.HandleFunc("/songs/:id", songHandler.UpdateSong).Methods(http.MethodPut)
-	router.HandleFunc("/songs/:id", songHandler.DeleteSong).Methods(http.MethodDelete)
+	err := h.SongService.AddSong(songRequest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not add song"})
+		return
+	}
 
-	return router
+	c.JSON(http.StatusCreated, gin.H{"message": "Song created successfully"})
+}
+
+// UpdateSong handles the PUT request to update a song by its ID
+func (h *Handler) UpdateSong(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
+		return
+	}
+
+	var songRequest service.SongRequest
+	if err := c.ShouldBindJSON(&songRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Validate the release date
+	if songRequest.ReleaseDate.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid release date"})
+		return
+	}
+
+	err = h.SongService.UpdateSong(id, songRequest)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update song"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully"})
+}
+
+// DeleteSong handles the DELETE request to remove a song by its ID
+func (h *Handler) DeleteSong(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
+		return
+	}
+
+	err = h.SongService.DeleteSong(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete song"})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, gin.H{"message": "Song deleted successfully"})
 }

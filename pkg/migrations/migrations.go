@@ -14,20 +14,25 @@ func Migrate(db *sql.DB) error {
 	// Create a new migrate instance using the PostgreSQL driver
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("failed to create migration driver: %v", err)
+		return fmt.Errorf("failed to create migrations driver: %v", err)
 	}
 
-	// Initialize migration source (in this case, local directory migrations)
+	// Initialize migrations source (in this case, local directory migrations)
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://migrations",
-		"postgres", driver)
+		"song", driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %v", err)
 	}
 
 	// Run migrations
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("failed to apply migrations: %v", err)
+	log.Println("Applying database migrations...")
+	if err := m.Up(); err != nil {
+		if err == migrate.ErrNoChange {
+			log.Println("No new migrations to apply.")
+		} else {
+			log.Fatalf("Migration error: %v", err) // Critical error
+		}
 	}
 
 	log.Println("Migrations applied successfully!")

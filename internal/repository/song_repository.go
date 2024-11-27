@@ -1,103 +1,106 @@
 package repository
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"song-library/internal/models"
 )
 
 type SongRepository struct {
-	db *sql.DB
+	DB *sql.DB
 }
 
+// NewSongRepository creates a new SongRepository instance
 func NewSongRepository(db *sql.DB) *SongRepository {
-	return &SongRepository{db: db}
+	return &SongRepository{DB: db}
 }
 
-func (r *SongRepository) Create(ctx context.Context, song models.Song) (string, error) {
+// GetSongs retrieves songs with pagination, based on the group and song name filters
+func (r *SongRepository) GetSongs(group, song string, page, limit int) ([]models.Song, error) {
 	query := `
-		INSERT INTO songs (group_name, song_name, lyrics) 
-		VALUES ($1, $2, $3) 
-		RETURNING id`
-	var id string
-	err := r.db.QueryRowContext(ctx, query, song.GroupName, song.SongName, song.Lyrics).Scan(&id)
+		SELECT s.id, g.name, s.song, s.release_date, s.lyrics
+		FROM songs s
+		JOIN groups g ON s.group_id = g.id
+		WHERE g.name ILIKE $1 AND s.song ILIKE $2
+		LIMIT $3 OFFSET $4
+	`
+	rows, err := r.DB.Query(query, "%"+group+"%", "%"+song+"%", limit, (page-1)*limit)
 	if err != nil {
-		return "", fmt.Errorf("failed to insert song: %v", err)
-	}
-	return id, nil
-}
-
-func (r *SongRepository) GetByID(ctx context.Context, id string) (*models.Song, error) {
-	query := `
-		SELECT id, group_name, song_name, lyrics, created_at, updated_at
-		FROM songs 
-		WHERE id = $1`
-	var song models.Song
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&song.ID,
-		&song.GroupName,
-		&song.SongName,
-		&song.Lyrics,
-		&song.CreatedAt,
-		&song.UpdatedAt,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get song by id: %v", err)
-	}
-	return &song, nil
-}
-
-func (r *SongRepository) GetAll(ctx context.Context, filter string, limit, offset int) ([]models.Song, error) {
-	query := `
-		SELECT id, group_name, song_name, lyrics, created_at, updated_at
-		FROM songs
-		WHERE group_name ILIKE $1 OR song_name ILIKE $1
-		LIMIT $2 OFFSET $3`
-	rows, err := r.db.QueryContext(ctx, query, "%"+filter+"%", limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get songs: %v", err)
+		return nil, err
 	}
 	defer rows.Close()
 
 	var songs []models.Song
 	for rows.Next() {
-		var song models.Song
-		if err := rows.Scan(
-			&song.ID,
-			&song.GroupName,
-			&song.SongName,
-			&song.Lyrics,
-			&song.CreatedAt,
-			&song.UpdatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan song: %v", err)
+		var s models.Song
+		if err := rows.Scan(&s.ID, &s.Group, &s.Song, &s.ReleaseDate, &s.Lyrics); err != nil {
+			return nil, err
 		}
-		songs = append(songs, song)
+		songs = append(songs, s)
 	}
+
 	return songs, nil
 }
 
-func (r *SongRepository) Update(ctx context.Context, song models.Song) error {
-	query := `
-		UPDATE songs
-		SET group_name = $1, song_name = $2, lyrics = $3, updated_at = NOW()
-		WHERE id = $4`
-	_, err := r.db.ExecContext(ctx, query, song.GroupName, song.SongName, song.Lyrics, song.ID)
+// AddSong adds a new song to the database and handles adding a group if necessary
+func (r *SongRepository) AddSong(song models.Song) error {
+	// First, try to add the group if it doesn't exist
+	var groupID int
+	err := r.DB.QueryRow(`INSERT INTO groups (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id`, song.Group).
+		Scan(&groupID)
 	if err != nil {
-		return fmt.Errorf("failed to update song: %v", err)
+		return fmt.Errorf("failed to add group: %v", err)
 	}
-	return nil
+
+	if groupID == 0 {
+		// If the group already exists, get its ID
+		err = r.DB.QueryRow(`SELECT id FROM groups WHERE name = $1`, song.Group).Scan(&groupID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch group ID: %v", err)
+		}
+	}
+
+	// Add the song with the obtained group ID
+	query := `INSERT INTO songs (group_id, song, release_date, lyrics) VALUES ($1, $2, $3, $4)`
+	_, err = r.DB.Exec(query, groupID, song.Song, song.ReleaseDate, song.Lyrics)
+	return err
 }
 
-func (r *SongRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM songs WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
+// GetSongByID retrieves a song by its ID
+func (r *SongRepository) GetSongByID(id int) (*models.Song, error) {
+	var song models.Song
+
+	query := `
+		SELECT s.id, g.name, s.song, s.release_date, s.lyrics
+		FROM songs s
+		JOIN groups g ON s.group_id = g.id
+		WHERE s.id = $1
+	`
+	err := r.DB.QueryRow(query, id).Scan(&song.ID, &song.Group, &song.Song, &song.ReleaseDate, &song.Lyrics)
 	if err != nil {
-		return fmt.Errorf("failed to delete song: %v", err)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("song with ID %d not found", id)
+		}
+		return nil, fmt.Errorf("error fetching song by ID: %v", err)
 	}
-	return nil
+
+	return &song, nil
+}
+
+// UpdateSong updates an existing song in the database by its ID
+func (r *SongRepository) UpdateSong(id int, song models.Song) error {
+	query := `
+		UPDATE songs
+		SET song = $1, release_date = $2, lyrics = $3
+		WHERE id = $4
+	`
+	_, err := r.DB.Exec(query, song.Song, song.ReleaseDate, song.Lyrics, id)
+	return err
+}
+
+// DeleteSong deletes a song by its ID from the database
+func (r *SongRepository) DeleteSong(id int) error {
+	query := `DELETE FROM songs WHERE id = $1`
+	_, err := r.DB.Exec(query, id)
+	return err
 }
