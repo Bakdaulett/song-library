@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	_ "song-library/docs"
 	"song-library/internal/app"
 	"song-library/internal/handlers"
 	"song-library/internal/repository"
@@ -11,13 +16,13 @@ import (
 	"song-library/pkg/logger"
 	"song-library/pkg/migrations"
 	"syscall"
-
-	"context"
-	"github.com/joho/godotenv"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
+// @title Song Library API
+// @version 1.0
+// @description This is the Song Library API that allows you to manage songs and their lyrics.
+// @host localhost:8080
+// @BasePath /songs
 func main() {
 	if err := godotenv.Load(); err != nil {
 		logrus.Fatalf("error loading .env file: %s", err.Error())
