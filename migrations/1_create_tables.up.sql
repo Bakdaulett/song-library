@@ -35,14 +35,14 @@ VALUES
         (SELECT id FROM groups WHERE name = 'Imagine Dragons'),
         'Believer',
         '2017-02-01',
-        'Verse 1\n\nVerse 2\n\nVerse 3',
+        'Oh, let the bullets fly, oh, let them rain \n\nMy life, my love, my drive it came from \n\nPain!You made me a-, you made me a believer, believer',
         'https://example.com/believer'
     ),
     (
         (SELECT id FROM groups WHERE name = 'Imagine Dragons'),
         'Thunder',
         '2017-04-27',
-        'Verse1 \n\nverse2 \n\nverse3',
+        'Thunder, thunder, \n\nThunder, th-th-thunder, thunder \n\nThunder, thunder',
         'https://example.com/thunder'
     ),
     (
