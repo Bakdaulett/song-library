@@ -21,3 +21,35 @@ CREATE TABLE IF NOT EXISTS songs (
 
 CREATE INDEX idx_songs_group_id ON songs(group_id);
 CREATE INDEX idx_songs_song ON songs(song);
+
+INSERT INTO groups (name)
+VALUES
+    ('Imagine Dragons'),
+    ('Arctic Monkeys')
+ON CONFLICT (name) DO NOTHING;
+
+
+INSERT INTO songs (group_id, song, release_date, lyrics, link)
+VALUES
+    (
+        (SELECT id FROM groups WHERE name = 'Imagine Dragons'),
+        'Believer',
+        '2017-02-01',
+        'Verse 1\n\nVerse 2\n\nVerse 3',
+        'https://example.com/believer'
+    ),
+    (
+        (SELECT id FROM groups WHERE name = 'Imagine Dragons'),
+        'Thunder',
+        '2017-04-27',
+        'Verse1 \n\nverse2 \n\nverse3',
+        'https://example.com/thunder'
+    ),
+    (
+        (SELECT id FROM groups WHERE name = 'Arctic Monkeys'),
+        'Do I Wanna Know?',
+        '2013-06-18',
+        'Verse 1: Have you got color in your cheeks?\n\nVerse 2: Do you ever get that fear that you can’t shift\n\nVerse 3: Crawling back to you...',
+        'https://example.com/do-i-wanna-know'
+    )
+    ON CONFLICT DO NOTHING;

@@ -24,6 +24,7 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		songs.PUT("/:id", h.UpdateSong)
 		songs.DELETE("/:id", h.DeleteSong)
 		songs.GET("/:id/lyrics", h.GetSongLyrics)
+		songs.GET("/:id/lyrics/:range", h.GetSongLyricsByRange)
 	}
 
 	return router
