@@ -155,6 +155,117 @@
                 },
                 "tags": ["Songs"]
             }
+        },
+        "/{id}/lyrics": {
+            "get": {
+                "summary": "Get all lyrics of a song",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "Song ID"
+                    }
+                ],
+                "produces": ["application/json"],
+                "responses": {
+                    "200": {
+                        "description": "All lyrics of the song",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuccessResponse"
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                },
+                "tags": ["Lyrics"]
+            }
+        },
+        "/{id}/lyrics/{verseId}": {
+            "get": {
+                "summary": "Get specific verse lyrics by verse ID",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "Song ID"
+                    },
+                    {
+                        "name": "verseId",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "Verse ID"
+                    }
+                ],
+                "produces": ["application/json"],
+                "responses": {
+                    "200": {
+                        "description": "Lyrics of the specific verse",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuccessResponse"
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                },
+                "tags": ["Lyrics"]
+            }
+        },
+        "/{id}/lyrics/{verseStartId}-{verseEndId}": {
+            "get": {
+                "summary": "Get a range of lyrics from verseStartId to verseEndId",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "Song ID"
+                    },
+                    {
+                        "name": "verseStartId",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "Start verse ID"
+                    },
+                    {
+                        "name": "verseEndId",
+                        "in": "path",
+                        "required": true,
+                        "type": "integer",
+                        "description": "End verse ID"
+                    }
+                ],
+                "produces": ["application/json"],
+                "responses": {
+                    "200": {
+                        "description": "Range of lyrics from start to end verse",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuccessResponse"
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                },
+                "tags": ["Lyrics"]
+            }
         }
     },
     "definitions": {

@@ -35,6 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Database initialization
 	db, err := database.NewPostgresDB(database.Config{
 		Host:     viper.GetString("db.host"),
 		Port:     viper.GetString("db.port"),
@@ -49,6 +50,7 @@ func main() {
 	}
 	defer db.Close()
 
+	// Run migrations
 	if err := migrations.Migrate(db); err != nil {
 		logger.Error("Error running migrations: " + err.Error())
 		os.Exit(1)

@@ -78,7 +78,7 @@ func (r *SongRepository) AddSong(song models.Song) error {
 	return nil
 }
 
-func (r *SongRepository) GetSongByID(songID int) (*models.Song, error) {
+func (r *SongRepository) GetSongByID(songID string) (*models.Song, error) {
 	query := `
         SELECT s.id, g.name, s.song, s.release_date, s.lyrics, s.link
         FROM songs s

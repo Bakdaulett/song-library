@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"song-library/internal/models"
 	"song-library/internal/repository"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -40,7 +41,7 @@ func (s *SongService) GetSongs(group, song string, page, limit int) ([]models.So
 	return s.SongRepo.GetSongs(group, song, page, limit)
 }
 
-func (s *SongService) GetSongByID(id int) (*models.Song, error) {
+func (s *SongService) GetSongByID(id string) (*models.Song, error) {
 	song, err := s.SongRepo.GetSongByID(id)
 	if err != nil {
 		return nil, err
@@ -50,7 +51,7 @@ func (s *SongService) GetSongByID(id int) (*models.Song, error) {
 }
 
 func (s *SongService) GetSongLyricsWithRange(songID, start, end int) (string, error) {
-	song, err := s.SongRepo.GetSongByID(songID)
+	song, err := s.SongRepo.GetSongByID(strconv.Itoa(songID))
 	if err != nil {
 		return "", fmt.Errorf("could not retrieve song with ID %d: %w", songID, err)
 	}
@@ -116,6 +117,5 @@ func (s *SongService) UpdateSong(id int, songRequest SongRequest) error {
 }
 
 func (s *SongService) DeleteSong(id int) error {
-	// Delete the song from the repository
 	return s.SongRepo.DeleteSong(id)
 }

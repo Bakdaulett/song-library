@@ -70,7 +70,7 @@ func (h *Handler) GetSongByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page size"})
 		return
 	}
-	song, err := h.SongService.GetSongByID(id)
+	song, err := h.SongService.GetSongByID(strconv.Itoa(id))
 	if err != nil {
 		log.Printf("Error fetching song with ID %d: %v", id, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
