@@ -57,6 +57,50 @@ The Song Library API provides the following endpoints:
 - **Description**: Deletes a song from the database by its ID.
 - **Response**: Confirms that the song has been deleted successfully.
 
+### **Lyrics API Endpoints**
+
+The following endpoints allow you to manage and retrieve lyrics for songs.
+
+### 6. **Get All Lyrics for a Song**
+- **GET** `/songs/{id}/lyrics`
+- **Description**: Retrieves all the lyrics for a specific song by its ID.
+- **Parameters**:
+    - `id`: The unique identifier for the song (integer).
+- **Response Example**:
+    ```json
+    {
+        "lyrics": "Verse 1: Have you got color in your cheeks?\n\nVerse 2: Do you ever get that fear that you can’t shift\n\nVerse 3: Crawling back to you..."
+    }
+    ```
+
+### 7. **Get Specific Lyrics by Verse Number**
+- **GET** `/songs/{id}/lyrics/{verse_number}`
+- **Description**: Retrieves the lyrics for a specific verse of a song.
+- **Parameters**:
+    - `id`: The unique identifier for the song (integer).
+    - `verse_number`: The verse number you want to retrieve.
+- **Response Example** (for `/songs/3/lyrics/1`):
+    ```json
+    {
+        "lyrics": "Verse 1: Have you got color in your cheeks?"
+    }
+    ```
+
+### 8. **Get Multiple Lyrics by Verse Range**
+- **GET** `/songs/{id}/lyrics/{verse_start}-{verse_end}`
+- **Description**: Retrieves lyrics for a specific range of verses from a song.
+- **Parameters**:
+    - `id`: The unique identifier for the song (integer).
+    - `verse_start`: The starting verse number.
+    - `verse_end`: The ending verse number.
+- **Response Example** (for `/songs/3/lyrics/2-3`):
+    ```json
+    {
+        "lyrics": "Verse 2: Do you ever get that fear that you can’t shift\n\nVerse 3: Crawling back to you..."
+    }
+    ```
+  
+
 ## API Documentation
 
 Swagger has been integrated into the project for easy API exploration.
